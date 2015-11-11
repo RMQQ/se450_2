@@ -1,0 +1,81 @@
+package agent;
+
+import java.util.ArrayDeque;
+import agent.Light.State;
+/**
+ * A road holds cars.
+ */
+
+class Road implements CarAcceptor {
+
+  Road(double pos) {
+	  _position = pos;
+
+  } // Created only by this package
+  
+  private ArrayDeque<Car> _cars = new ArrayDeque<Car>();
+  private double _length = Math.rint(MP.minRoadL + Math.random() * MP.maxRoadL);
+  private double _position;
+  
+  CarAcceptor nextRoad;
+  
+  public void accept(Car d) {
+	  
+	  if ( d == null ) {
+    	throw new IllegalArgumentException(); 
+    	}
+    
+    _cars.add(d);
+    d.setRoad(this);   
+  }
+  public void remove(Car d) {
+	  if (d == null ) {
+		  throw new IllegalArgumentException();
+	  }
+	  
+	  _cars.remove(d);
+	  d.setRoad(nextRoad);
+  }
+  
+  public ArrayDeque<Car> getCars() {
+    return _cars;
+  }
+  /*
+  // get the front position of front car on this road
+  double getFrontPos() {
+	  Car f = _cars.getFirst();
+	  return f.getPosition() + f.getLength();
+  }
+  // get the back position of last car on this road
+  double getBackPos() {
+	  Car b = _cars.getLast();
+	  return b.getPosition();
+  }
+  
+ 
+  private double immediateCarBack(double fromPosition) {
+	  double carBackPosition = Double.POSITIVE_INFINITY;
+	  for (Car c : _cars) 
+		  if (c.getPosition() >= fromPosition && c.getPosition() <= carBackPosition)
+			  carBackPosition = c.getPosition();
+	  return carBackPosition;
+		  
+  } */
+  
+  public double getPosition() {
+	  return _position;
+  }
+  public double getLength() {
+	  return _length;
+  }
+
+  public CarAcceptor getNextRoad() {
+	  return nextRoad;
+  }
+  
+  public void setNextRoad(CarAcceptor r) {
+	  nextRoad = r;
+  }
+  
+  public State getState() {throw new UnsupportedOperationException();}
+}
