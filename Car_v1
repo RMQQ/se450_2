@@ -1,0 +1,137 @@
+package agent;
+import java.util.Iterator;
+import agent.Light.State;
+/**
+ * A car remembers its position from the beginning of its road.
+ * Cars have random velocity and random movement pattern:
+ * when reaching the end of a road, the dot either resets its position
+ * to the beginning of the road, or reverses its direction.
+ */
+public class Car implements Agent {
+  Car(TimeServer time) { _time = time; } // Created only by this package
+
+  private final TimeServer _time;
+  private double _position;
+  private final double _length = Math.rint(MP.minCarL + Math.random() * MP.maxCarL);
+  private double _frontPos = _position + _length;
+  private final double _maxV = Math.rint(MP.minV + Math.random() * MP.maxV);
+  private double _velocity = _maxV;
+  private final double _brakeD = Math.rint(MP.minBrakeD + Math.random() * MP.maxBrakeD);
+  private final double _stopD = Math.rint(MP.minStopD + Math.random() * MP.maxStopD);
+  CarAcceptor currentRoad;
+  
+  
+  public double getPosition() 		{return _position;}
+  public double getVelocity() 		{return _velocity;} 
+         double getLength() 		{return _length;} 
+  void setVelocity(double v) 		{		_velocity = v;}
+  void setRoad(CarAcceptor r) 		{		currentRoad = r; }  
+  CarAcceptor getRoad() 			{return currentRoad;}
+  boolean isFirst()					{return currentRoad.getCars().peekFirst() == this;}
+  
+  Car getCarAhead() {
+	  if (isFirst()) {
+		  CarAcceptor next = currentRoad.getNextRoad();
+		  while (!(next instanceof Sink) && next.getCars().size() == 0) 
+			  next = next.getNextRoad();
+		  if (next instanceof Sink) return null;
+		  else						return next.getCars().peekLast();
+	  }
+	  
+	  Car ahead = null;
+	  Iterator<Car> itr = currentRoad.getCars().descendingIterator();
+	  while (itr.hasNext()) {
+		  Car c1 = itr.next();
+		  if (c1 == this) 
+			   ahead = itr.next();
+	  }
+	  
+	  return ahead;
+  }
+  
+  void brake(double distToObs) {
+	  double oldV = _velocity;
+	  double v = (_maxV / (_brakeD - _stopD)) * (distToObs - _stopD);
+	  v = Math.max(0.0,  v);
+	  v = Math.min(_maxV, v);
+	  _velocity = v;
+	  if (v < oldV) System.out.println("time " + _time.currentTime() + " braked from " + oldV + " to " + v + " !");
+  }
+  public void run() {
+	  CarAcceptor next = currentRoad.getNextRoad();
+	  
+	  if (_position >= next.getPosition()) {
+		  currentRoad.remove(this);
+		  next.accept(this);
+		  System.out.println("time " + _time.currentTime() + "  ====> next road!");
+	  }
+	  if (isFirst()) {
+			 
+		  // at end of road
+		  
+    	 if(_position + _velocity * MP.timeStep >= currentRoad.getPosition() + currentRoad.getLength()) {
+    		 
+    		 if (next instanceof Light) {
+    			 // red light, green/yellow light with gridlock, yellow light beyond brake distance, brake
+    			 if (next.getState() == State.RED 
+    					 || next.getState() == State.GRIDLOCK
+    					 || (next.getState() == State.YELLOW && ((next.getPosition() - _frontPos) > _brakeD)) ) {
+    				 brake(next.getPosition() - _frontPos);  
+    				 _position += _velocity * MP.timeStep;
+    			 }
+ 		 
+    			 else {
+    				 
+    				 if (next.getCars().size() != 0)
+    					 brake (next.getCars().peekLast().getPosition() - _frontPos);
+    				 
+    				 _position += _velocity * MP.timeStep;
+    				 
+    				 if (_position >= next.getPosition()) {
+    					 currentRoad.remove(this);
+    					 next.accept(this);
+    					 next = next.getNextRoad();
+    					 System.out.println("time " + _time.currentTime() + "  ====> next road!");
+    				 }   			 
+    			 }
+    			 
+    			 _time.enqueue(_time.currentTime() + MP.timeStep, this);
+
+    		 }
+    		 
+    		 if (next instanceof Sink) {
+    			 _position = next.getPosition();
+    			 currentRoad.remove(this);
+    			 
+    			 System.out.println("***time " + _time.currentTime() + " at position " + _position + " end of trip!");
+    		 }
+    	 }
+    	 else {
+    		 _position += _velocity * MP.timeStep;
+    		 _time.enqueue(_time.currentTime() + MP.timeStep, this);
+    		 
+    	 }
+	  }
+    
+	  // not the first car
+	  else {
+		  Car ahead = getCarAhead();
+		  if ((ahead.getVelocity() < _velocity)
+				  && (ahead.getPosition() - _frontPos) < (_velocity - ahead.getVelocity()))
+			  _velocity = (ahead.getPosition() - _frontPos) / 2 ;
+		  else 
+			  brake(getCarAhead().getPosition() - _frontPos);
+		  
+		  _position += _velocity * MP.timeStep;
+		  _time.enqueue(_time.currentTime() + MP.timeStep, this);
+		  
+		  
+	  }
+	  
+	  
+	  if (isFirst())
+		  System.out.println("time " + _time.currentTime() + " at position " + _position + " speed is " + _velocity + " is First");
+	  else
+		  System.out.println ("time " + _time.currentTime() + " at position " + _position + " speed is " + _velocity + " after Car with speed of " + getCarAhead().getVelocity() + " at position " + getCarAhead().getPosition());
+  }
+}
